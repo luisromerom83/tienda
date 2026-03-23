@@ -1,12 +1,25 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { db } from '../firebase';
+import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 
 const Catalog = () => {
   const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const saved = localStorage.getItem('products');
-    if (saved) setProducts(JSON.parse(saved));
+    const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
+    
+    // Con onSnapshot, la tienda se actualiza en tiempo real!
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const items = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setProducts(items);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   return (
@@ -36,7 +49,7 @@ const Catalog = () => {
         {products.map(product => (
           <div key={product.id} className="glass card">
             <div style={{ position: 'relative' }}>
-              <img src={product.image} alt={product.name} className="product-img" />
+              <img src={product.imageURL} alt={product.name} className="product-img" />
               <span className="badge" style={{ 
                 position: 'absolute', 
                 top: '1rem', 
@@ -59,7 +72,9 @@ const Catalog = () => {
         ))}
       </div>
 
-      {products.length === 0 && (
+      {loading && <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Cargando catálogo...</p>}
+
+      {!loading && products.length === 0 && (
         <div className="glass" style={{ textAlign: 'center', padding: '5rem', marginTop: '2rem' }}>
           <p style={{ color: 'var(--text-muted)', fontSize: '1.2rem' }}>
             Nuestro catálogo está siendo actualizado. <br/> Vuelve pronto para ver las novedades.
@@ -68,7 +83,7 @@ const Catalog = () => {
       )}
 
       <footer style={{ marginTop: '8rem', padding: '4rem 0', textAlign: 'center', borderTop: '1px solid var(--glass-border)' }}>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>© 2024 Tienda Premium. Todos los derechos reservados.</p>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>© 2024 DEPORTUX. Todos los derechos reservados.</p>
       </footer>
     </div>
   );
