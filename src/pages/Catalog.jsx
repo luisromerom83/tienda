@@ -127,6 +127,18 @@ const ProductCard = ({ product, onOpenImage }) => {
             fontSize: '0.65rem'
           }}>Talla {product.size}</span>
         )}
+        <span className="badge" style={{ 
+          position: 'absolute', 
+          bottom: '1rem', 
+          left: '1rem',
+          background: 'rgba(255,255,255,0.15)',
+          backdropFilter: 'blur(8px)',
+          color: 'white',
+          fontSize: '0.6rem',
+          letterSpacing: '1px',
+          padding: '0.2rem 0.6rem',
+          border: '1px solid rgba(255,255,255,0.2)'
+        }}>{product.category?.toUpperCase() || 'ADULTO'}</span>
       </div>
       <div className="product-info">
         <h3 style={{ marginBottom: '0.5rem', fontSize: '1.25rem' }}>{product.name}</h3>

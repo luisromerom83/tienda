@@ -290,6 +290,9 @@ const AdminItem = ({ p, onAdd, onDelete, onEdit }) => (
     <div style={{ position: 'absolute', top: '0', left: '0', background: p.type === 'order' ? '#f59e0b' : '#10b981', color: 'white', fontSize: '0.5rem', padding: '2px 4px', borderRadius: '4px 0 4px 0', zIndex: 1 }}>
         {p.type === 'order' ? 'BAJO PEDIDO' : 'STOCK'}
     </div>
+    <div style={{ position: 'absolute', bottom: '0.6rem', left: '0.6rem', background: 'rgba(0,0,0,0.6)', color: 'white', fontSize: '0.4rem', padding: '1px 3px', borderRadius: '2px', zIndex: 1, letterSpacing: '0.5px' }}>
+        {p.category?.toUpperCase() || 'ADULTO'}
+    </div>
     <img src={p.image_url} style={{ width: '45px', height: '45px', borderRadius: '4px' }} alt="" />
     <div style={{ flex: 1 }}>
       <p style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>{p.name}</p>
