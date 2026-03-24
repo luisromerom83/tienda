@@ -42,6 +42,18 @@ const Catalog = () => {
       </header>
 
       <section style={{ marginBottom: '5rem', textAlign: 'center' }}>
+        <div className="glass" style={{ 
+          display: 'inline-flex', 
+          alignItems: 'center', 
+          gap: '1rem', 
+          padding: '0.8rem 1.5rem', 
+          marginBottom: '2rem',
+          border: '1px solid var(--primary)',
+          fontSize: '0.9rem'
+        }}>
+          <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>📞 CONTACTO:</span>
+          <span>5514512919 o 2872360877</span>
+        </div>
         <h1 style={{ fontSize: 'clamp(2rem, 6vw, 3.5rem)', marginBottom: '1rem', lineHeight: '1.1' }}>
           Tu Estilo, <br/> Bajo Tus Reglas
         </h1>
