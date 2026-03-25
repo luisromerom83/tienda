@@ -77,7 +77,7 @@ const Catalog = () => {
           <CategoryCard 
             title="Catálogo Niños" 
             desc="Equipación oficial para las futuras estrellas del deporte." 
-            img="https://images.unsplash.com/photo-1606925797300-0b35e9d1794e?q=80&w=2081&auto=format&fit=crop" 
+            img="/kids-hero.png" 
             onClick={() => navigate('/category/Niño')} 
           />
         </section>
