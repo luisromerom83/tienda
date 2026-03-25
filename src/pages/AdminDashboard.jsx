@@ -13,6 +13,7 @@ const AdminDashboard = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [hoveredImage, setHoveredImage] = useState(null);
+  const [isDraftLoaded, setIsDraftLoaded] = useState(false);
   
   const [newProduct, setNewProduct] = useState({ 
     name: '', size: '', price: '', type: 'stock', category: 'Adulto', is_favorite: false, image: null 
@@ -27,26 +28,39 @@ const AdminDashboard = () => {
     const auth = sessionStorage.getItem('isAdminAuthenticated');
     if (auth === 'true') {
       setIsAuthenticated(true);
-      fetchProducts(); fetchOrdersHistory();
-      // Intentamos recuperar del servidor primero para persistencia entre dispositivos
-      fetch('/api/orders?type=draft')
-        .then(res => res.json())
-        .then(data => { 
-          if (data && data.length) setActiveOrderItems(data);
-          else {
-            const cached = localStorage.getItem('deportux_draft_order');
-            if (cached) setActiveOrderItems(JSON.parse(cached));
-          }
-        })
-        .catch(() => {
-          const cached = localStorage.getItem('deportux_draft_order');
-          if (cached) setActiveOrderItems(JSON.parse(cached));
-        });
+      fetchProducts();
+      fetchOrdersHistory();
+      fetchDraft();
     }
   }, []);
 
   useEffect(() => {
     if (isAuthenticated) {
+      fetchDraft();
+    }
+  }, [isAuthenticated]);
+
+  const fetchDraft = async () => {
+    try {
+      const resp = await fetch('/api/orders?type=draft');
+      const data = await resp.json();
+      if (data && data.length) {
+        setActiveOrderItems(data);
+      } else {
+        const cached = localStorage.getItem('deportux_draft_order');
+        if (cached) setActiveOrderItems(JSON.parse(cached));
+      }
+      setIsDraftLoaded(true);
+    } catch (e) {
+      console.error("Error fetching draft:", e);
+      const cached = localStorage.getItem('deportux_draft_order');
+      if (cached) setActiveOrderItems(JSON.parse(cached));
+      setIsDraftLoaded(true);
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated && isDraftLoaded) {
       localStorage.setItem('deportux_draft_order', JSON.stringify(activeOrderItems));
       
       // Sincronización con el servidor (Debounced 1s)
@@ -60,7 +74,7 @@ const AdminDashboard = () => {
 
       return () => clearTimeout(timer);
     }
-  }, [activeOrderItems, isAuthenticated]);
+  }, [activeOrderItems, isAuthenticated, isDraftLoaded]);
 
   const fetchProducts = async () => {
     try {
@@ -286,6 +300,13 @@ const AdminDashboard = () => {
         .inline-edit:hover { background: rgba(255,255,255,0.05) !important; border-radius: 4px; }
         .inline-edit:focus { background: rgba(255,255,255,0.1) !important; border-bottom: 1px solid var(--primary) !important; border-radius: 4px 4px 0 0; }
         .collapse-header:hover { background: rgba(255,255,255,0.05); }
+        .form-grid-3 { display: grid; grid-template-columns: 1.2fr 1.1fr 1fr; gap: 0.5rem; }
+        .form-grid-2 { display: grid; grid-template-columns: 1fr 1.5fr; gap: 0.5rem; }
+        @media (max-width: 600px) {
+          .form-grid-3, .form-grid-2 { grid-template-columns: 1fr !important; }
+          .admin-page { padding: 1rem !important; }
+          h1 { fontSize: 1.2rem !important; }
+        }
       `}</style>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -300,21 +321,21 @@ const AdminDashboard = () => {
           <section className="glass" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
             <h3>Añadir/Editar Producto</h3>
             <form onSubmit={handleCatalogSubmit} style={{ display: 'grid', gap: '0.8rem', marginTop: '1rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.8rem' }}>
-                    <input type="text" placeholder="Nombre" required className="glass" style={{ padding: '0.5rem' }} value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} />
-                    <input type="text" placeholder="Talla" required={newProduct.type === 'stock'} className="glass" style={{ padding: '0.5rem' }} value={newProduct.size} onChange={e => setNewProduct({...newProduct, size: e.target.value})} />
+                <input type="text" placeholder="Nombre del Uniforme" required className="glass" style={{ padding: '0.5rem', width: '100%' }} value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} />
+                <div className="form-grid-3">
+                    <input type="text" placeholder="Tallas" required={newProduct.type === 'stock'} className="glass" style={{ padding: '0.5rem', width: '100%', minWidth: 0 }} value={newProduct.size} onChange={e => setNewProduct({...newProduct, size: e.target.value})} />
                     <select className="glass" style={{ padding: '0.5rem', background: '#1e293b' }} value={newProduct.category} onChange={e => setNewProduct({...newProduct, category: e.target.value})}>
                         <option value="Adulto">Adulto</option>
                         <option value="Niño">Niño</option>
                     </select>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '0.8rem' }}>
                     <select className="glass" style={{ padding: '0.5rem', background: '#1e293b' }} value={newProduct.type} onChange={e => setNewProduct({...newProduct, type: e.target.value})}>
                         <option value="stock">Existencia</option>
                         <option value="order">Bajo Pedido</option>
                     </select>
-                    <input type="number" placeholder="Precio ($)" required={newProduct.type === 'stock'} className="glass" style={{ padding: '0.5rem' }} value={newProduct.price} onChange={e => setNewProduct({...newProduct, price: e.target.value})} />
-                    <input type="file" accept="image/*" className="glass" style={{ padding: '0.3rem', fontSize: '0.7rem' }} onChange={e => setNewProduct({...newProduct, image: e.target.files[0]})} />
+                </div>
+                <div className="form-grid-2">
+                    <input type="number" placeholder="Precio ($)" required={newProduct.type === 'stock'} className="glass" style={{ padding: '0.5rem', width: '100%', minWidth: 0 }} value={newProduct.price} onChange={e => setNewProduct({...newProduct, price: e.target.value})} />
+                    <input type="file" accept="image/*" className="glass" style={{ padding: '0.3rem', fontSize: '0.7rem', width: '100%', minWidth: 0 }} onChange={e => setNewProduct({...newProduct, image: e.target.files[0]})} />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.05)', padding: '0.5rem', borderRadius: '8px' }}>
                     <input 
