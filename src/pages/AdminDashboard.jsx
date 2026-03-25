@@ -156,6 +156,7 @@ const AdminDashboard = () => {
   const addToOrderList = (p) => {
     setActiveOrderItems([...activeOrderItems, {
       orderId: Date.now(), id: p.id, name: p.name, price: parseFloat(p.price || 0),
+      cost: 0, // Nuevo campo de costo
       size: p.size === 'N/A' ? '' : p.size, image_url: p.image_url, quantity: 1, comment: '',
       category: p.category || 'Adulto'
     }]);
@@ -164,7 +165,7 @@ const AdminDashboard = () => {
   const addManualItem = () => {
     if (!manualItem.name) return alert("Nombre?");
     setActiveOrderItems([...activeOrderItems, {
-      orderId: Date.now(), id: 'manual', name: manualItem.name, price: 0,
+      orderId: Date.now(), id: 'manual', name: manualItem.name, price: 0, cost: 0,
       size: manualItem.size, image_url: '/logo.png', quantity: parseInt(manualItem.quantity) || 1, comment: manualItem.comment
     }]);
     setManualItem({ name: '', size: '', quantity: 1, comment: '' });
@@ -176,19 +177,44 @@ const AdminDashboard = () => {
 
   const getTotal = () => {
     const total = activeOrderItems.reduce((acc, i) => acc + (parseFloat(i.price) * (parseInt(i.quantity) || 1)), 0);
-    return isNaN(total) ? "0.00" : total.toFixed(2);
+    return isNaN(total) ? 0 : total;
+  };
+
+  const getTotalCost = () => {
+    const total = activeOrderItems.reduce((acc, i) => acc + (parseFloat(i.cost || 0) * (parseInt(i.quantity) || 1)), 0);
+    return isNaN(total) ? 0 : total;
   };
 
   const getSummaryForItems = (itemsList) => {
     const summary = {};
     itemsList.forEach(item => {
       const key = `${item.name}-${item.size}`;
-      if (!summary[key]) summary[key] = { name: item.name, size: item.size, total: 0, items: [], image_url: item.image_url };
+      if (!summary[key]) {
+        summary[key] = { 
+          name: item.name, 
+          size: item.size, 
+          total: 0, 
+          items: [], 
+          image_url: item.image_url,
+          cost: item.cost || 0,
+          price: item.price || 0
+        };
+      }
       const q = parseInt(item.quantity) || 1;
       summary[key].total += q;
       summary[key].items.push({ q, name: item.name, size: item.size, comment: item.comment });
     });
     return Object.values(summary);
+  };
+
+  // Función para actualizar costos/precios masivamente desde el resumen
+  const updateSummaryFinances = (name, size, field, value) => {
+    setActiveOrderItems(prev => prev.map(item => {
+        if (item.name === name && item.size === size) {
+            return { ...item, [field]: parseFloat(value) || 0 };
+        }
+        return item;
+    }));
   };
 
   const downloadSummaryXLSX = async () => {
@@ -462,11 +488,24 @@ const AdminDashboard = () => {
               ))}
             </div>
             <div style={{ borderTop: '1px solid #444', marginTop: '1rem', paddingTop: '1rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.2rem', fontWeight: 'bold' }}><span>Total:</span><span>${getTotal()}</span></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.2rem', fontWeight: 'bold' }}><span>Total:</span><span>${getTotal().toFixed(2)}</span></div>
               <button className="btn btn-primary" style={{ width: '100%', padding: '1rem', marginTop: '1rem' }} onClick={async () => {
                 if (!activeOrderItems.length || !window.confirm("Finalizar?")) return;
-                await fetch('/api/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: activeOrderItems, total_price: getTotal() }) });
-                setActiveOrderItems([]); localStorage.removeItem('deportux_draft_order'); fetchOrdersHistory(); alert('Listo');
+                const totalVal = getTotal();
+                const totalCostVal = getTotalCost();
+                const totalProfitVal = totalVal - totalCostVal;
+
+                await fetch('/api/orders', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ 
+                        items: activeOrderItems, 
+                        total_price: totalVal,
+                        total_cost: totalCostVal,
+                        total_profit: totalProfitVal
+                    }) 
+                });
+                setActiveOrderItems([]); localStorage.removeItem('deportux_draft_order'); fetchOrdersHistory(); alert('Pedido Guardado en Historial');
               }}>FINALIZAR PEDIDO</button>
             </div>
           </div>
@@ -482,9 +521,33 @@ const AdminDashboard = () => {
         </div>
         <div className="glass" style={{ padding: '2rem' }}>
           {getSummaryForItems(activeOrderItems).map((g, idx) => (
-            <div key={idx} style={{ marginBottom: '0.8rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.8rem' }}>
-              <div style={{ fontSize: '1.1rem' }}>
-                <strong style={{ color: 'var(--primary)' }}>{g.total}x</strong> {g.name} <strong>({g.size || 'Unique'})</strong>
+            <div key={idx} style={{ marginBottom: '1.2rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '1.2rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                <div style={{ fontSize: '1.1rem', flex: 1 }}>
+                  <strong style={{ color: 'var(--primary)' }}>{g.total}x</strong> {g.name} <strong>({g.size || 'Unique'})</strong>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', background: 'rgba(0,0,0,0.2)', padding: '0.5rem', borderRadius: '8px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <label style={{ fontSize: '0.6rem', opacity: 0.7 }}>Costo Unit.</label>
+                        <input 
+                            type="number" 
+                            className="glass" 
+                            style={{ padding: '0.2rem', width: '80px', fontSize: '0.8rem' }} 
+                            value={g.cost} 
+                            onChange={(e) => updateSummaryFinances(g.name, g.size, 'cost', e.target.value)}
+                        />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <label style={{ fontSize: '0.6rem', opacity: 0.7 }}>Venta Unit.</label>
+                        <input 
+                            type="number" 
+                            className="glass" 
+                            style={{ padding: '0.2rem', width: '80px', fontSize: '0.8rem' }} 
+                            value={g.price} 
+                            onChange={(e) => updateSummaryFinances(g.name, g.size, 'price', e.target.value)}
+                        />
+                    </div>
+                </div>
               </div>
               <div style={{ marginLeft: '1.5rem', marginTop: '0.5rem' }}>
                 {g.items.map((it, iIdx) => (
@@ -495,6 +558,26 @@ const AdminDashboard = () => {
               </div>
             </div>
           ))}
+
+          {/* Totales del Resumen */}
+          <div style={{ marginTop: '2rem', padding: '1.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem' }}>
+                <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>Subtotal Costos</div>
+                    <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#f87171' }}>${getTotalCost().toFixed(2)}</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>Subtotal Ventas</div>
+                    <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#4ade80' }}>${getTotal().toFixed(2)}</div>
+                </div>
+                <div style={{ textAlign: 'center', background: 'rgba(59,130,246,0.1)', padding: '1rem', borderRadius: '0.5rem' }}>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 'bold' }}>GANANCIA TOTAL</div>
+                    <div style={{ fontSize: '1.8rem', fontWeight: 'extrabold', color: 'white' }}>
+                        ${(getTotal() - getTotalCost()).toFixed(2)}
+                    </div>
+                </div>
+            </div>
+          </div>
         </div>
       </section>
 

@@ -202,7 +202,10 @@ const ProductCard = ({ product, onOpenImage }) => {
         }}>{product.category?.toUpperCase() || 'ADULTO'}</span>
       </div>
       <div className="product-info">
-        <h3 style={{ marginBottom: '0.5rem', fontSize: '1.25rem' }}>{product.name}</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
+          <h3 style={{ margin: 0, fontSize: '1.25rem' }}>{product.name}</h3>
+          <span style={{ color: 'var(--primary)', fontWeight: 'bold', fontSize: '0.82rem', opacity: 0.9 }}>#{product.short_id}</span>
+        </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
           <span className="price" style={{ color: isOrder ? '#fbbf24' : 'inherit' }}>
             {isOrder ? 'Cotizar' : `$${product.price}`}

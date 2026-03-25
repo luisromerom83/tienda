@@ -11,9 +11,15 @@ export default async function handler(request, response) {
         id SERIAL PRIMARY KEY,
         items JSONB NOT NULL,
         total_price DECIMAL(10, 2) NOT NULL,
+        total_cost DECIMAL(10, 2) DEFAULT 0,
+        total_profit DECIMAL(10, 2) DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `;
+    // Asegurar que las columnas existen si la tabla ya estaba creada
+    try { await pool.sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS total_cost DECIMAL(10, 2) DEFAULT 0;` } catch(e) {}
+    try { await pool.sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS total_profit DECIMAL(10, 2) DEFAULT 0;` } catch(e) {}
+
     await pool.sql`
       CREATE TABLE IF NOT EXISTS draft_order (
         id INT PRIMARY KEY DEFAULT 1,
@@ -36,7 +42,7 @@ export default async function handler(request, response) {
 
     // 3. POST: Guardar nuevo pedido o Borrador
     if (request.method === 'POST') {
-      const { items, total_price } = request.body;
+      const { items, total_price, total_cost, total_profit } = request.body;
       
       if (type === 'draft') {
         // Upsert para el borrador del admin (siempre id=1)
@@ -49,8 +55,8 @@ export default async function handler(request, response) {
       }
 
       const result = await pool.sql`
-        INSERT INTO orders (items, total_price)
-        VALUES (${JSON.stringify(items)}, ${total_price})
+        INSERT INTO orders (items, total_price, total_cost, total_profit)
+        VALUES (${JSON.stringify(items)}, ${total_price}, ${total_cost || 0}, ${total_profit || 0})
         RETURNING *;
       `;
       // Al finalizar un pedido real, limpiamos el borrador
