@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import * as XLSX from 'xlsx';
 
 const AdminDashboard = () => {
   const [products, setProducts] = useState([]);
@@ -26,14 +27,37 @@ const AdminDashboard = () => {
     if (auth === 'true') {
       setIsAuthenticated(true);
       fetchProducts(); fetchOrdersHistory();
-      const cached = localStorage.getItem('deportux_draft_order');
-      if (cached) setActiveOrderItems(JSON.parse(cached));
+      // Intentamos recuperar del servidor primero para persistencia entre dispositivos
+      fetch('/api/orders?type=draft')
+        .then(res => res.json())
+        .then(data => { 
+          if (data && data.length) setActiveOrderItems(data);
+          else {
+            const cached = localStorage.getItem('deportux_draft_order');
+            if (cached) setActiveOrderItems(JSON.parse(cached));
+          }
+        })
+        .catch(() => {
+          const cached = localStorage.getItem('deportux_draft_order');
+          if (cached) setActiveOrderItems(JSON.parse(cached));
+        });
     }
   }, []);
 
   useEffect(() => {
     if (isAuthenticated) {
       localStorage.setItem('deportux_draft_order', JSON.stringify(activeOrderItems));
+      
+      // Sincronización con el servidor (Debounced 1s)
+      const timer = setTimeout(() => {
+        fetch('/api/orders?type=draft', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: activeOrderItems })
+        }).catch(e => console.error("Error sincronizando borrador:", e));
+      }, 1000);
+
+      return () => clearTimeout(timer);
     }
   }, [activeOrderItems, isAuthenticated]);
 
@@ -149,17 +173,18 @@ const AdminDashboard = () => {
     return Object.values(summary);
   };
 
-  const downloadSummaryCSV = () => {
+  const downloadSummaryXLSX = () => {
     const summary = getSummaryForItems(activeOrderItems);
-    const header = "Cantidad de uniformes, Nombre Uniforme, Talla\n";
-    const rows = summary.map(g => `${g.total}, "${g.name}", ${g.size || 'Unica'}`).join("\n");
-    const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `Resumen_Deportux_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+    const data = summary.map(g => ({
+      "Cantidad de uniformes": g.total,
+      "Nombre Uniforme": g.name,
+      "Talla": g.size || 'Unica'
+    }));
+    
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Pedido Proveedor");
+    XLSX.writeFile(wb, `Pedido_Deportux_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   const resetForm = () => {
@@ -337,10 +362,10 @@ const AdminDashboard = () => {
       </div>
 
       <section style={{ marginTop: '5rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
           <h2 style={{ margin: 0, color: 'var(--primary)' }}>Resumen del Trabajo Actual (Proveedor)</h2>
-          <button onClick={downloadSummaryCSV} className="btn" style={{ background: '#10b981', color: 'white', padding: '0.5rem 1rem', fontSize: '0.8rem' }}>
-            📥 Descargar CSV
+          <button onClick={downloadSummaryXLSX} className="btn" style={{ background: '#10b981', color: 'white', padding: '0.5rem 1rem', fontSize: '0.8rem' }}>
+            📥 Descargar XLSX (Excel)
           </button>
         </div>
         <div className="glass" style={{ padding: '2rem' }}>

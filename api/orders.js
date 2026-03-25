@@ -5,7 +5,7 @@ export default async function handler(request, response) {
   const pool = createPool({ connectionString });
 
   try {
-    // 1. Crear tabla de historial de pedidos si no existe
+    // 1. Crear tablas si no existen
     await pool.sql`
       CREATE TABLE IF NOT EXISTS orders (
         id SERIAL PRIMARY KEY,
@@ -14,24 +14,48 @@ export default async function handler(request, response) {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `;
+    await pool.sql`
+      CREATE TABLE IF NOT EXISTS draft_order (
+        id INT PRIMARY KEY DEFAULT 1,
+        items JSONB NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
 
-    // LÍNEA TEMPORAL PARA BORRAR EL HISTORIAL UNA VEZ COMPLETA:
-    // await pool.sql`DELETE FROM orders;`;
+    const { type } = request.query;
 
-    // 2. GET: Listar historial
+    // 2. GET: Listar historial o Borrador
     if (request.method === 'GET') {
+      if (type === 'draft') {
+        const { rows } = await pool.sql`SELECT items FROM draft_order WHERE id = 1;`;
+        return response.status(200).json(rows[0]?.items || []);
+      }
       const { rows } = await pool.sql`SELECT * FROM orders ORDER BY created_at DESC;`;
       return response.status(200).json(rows || []);
     }
 
-    // 3. POST: Guardar nuevo pedido
+    // 3. POST: Guardar nuevo pedido o Borrador
     if (request.method === 'POST') {
       const { items, total_price } = request.body;
+      
+      if (type === 'draft') {
+        // Upsert para el borrador del admin (siempre id=1)
+        await pool.sql`
+          INSERT INTO draft_order (id, items, updated_at)
+          VALUES (1, ${JSON.stringify(items)}, CURRENT_TIMESTAMP)
+          ON CONFLICT (id) DO UPDATE SET items = EXCLUDED.items, updated_at = CURRENT_TIMESTAMP;
+        `;
+        return response.status(200).json({ message: 'Borrador guardado' });
+      }
+
       const result = await pool.sql`
         INSERT INTO orders (items, total_price)
         VALUES (${JSON.stringify(items)}, ${total_price})
         RETURNING *;
       `;
+      // Al finalizar un pedido real, limpiamos el borrador
+      await pool.sql`UPDATE draft_order SET items = '[]' WHERE id = 1;`;
+      
       return response.status(201).json(result.rows[0]);
     }
 
