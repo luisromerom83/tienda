@@ -7,6 +7,9 @@ const Catalog = () => {
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [cart, setCart] = useState([]);
+  const [isCartVisible, setIsCartVisible] = useState(false);
+  const [useTestData, setUseTestData] = useState(false);
   
   const { catName } = useParams();
   const navigate = useNavigate();
@@ -14,12 +17,12 @@ const Catalog = () => {
 
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [useTestData]);
 
   const fetchProducts = async () => {
     const startTime = Date.now();
     try {
-      const response = await fetch('/api/products');
+      const response = await fetch(`/api/products${useTestData ? '?test=true' : ''}`);
       const data = await response.json();
       setProducts(data);
     } catch (error) {
@@ -48,6 +51,46 @@ const Catalog = () => {
     // 3. Alfabético tercero
     return a.name.localeCompare(b.name);
   });
+
+  const addToCart = (product) => {
+    setCart(prev => {
+      const existing = prev.find(item => item.id === product.id);
+      if (existing) {
+        return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+      }
+      return [...prev, { ...product, quantity: 1 }];
+    });
+    setIsCartVisible(true);
+  };
+
+  const removeFromCart = (id) => setCart(prev => prev.filter(item => item.id !== id));
+  const updateQuantity = (id, delta) => {
+    setCart(prev => prev.map(item => {
+      if (item.id === id) {
+        const newQ = Math.max(1, item.quantity + delta);
+        return { ...item, quantity: newQ };
+      }
+      return item;
+    }));
+  };
+
+  const checkoutToWhatsApp = () => {
+    const phone = "525514512919";
+    let message = `*DEPORTUX - Nuevo Pedido* 🛒\n\n`;
+    let total = 0;
+    
+    cart.forEach(item => {
+      const priceText = item.type === 'order' ? 'Cotizar' : `$${item.price}`;
+      message += `• ${item.quantity}x ${item.name} (${item.size || 'N/A'}) - ${priceText}\n`;
+      if (item.type !== 'order') total += item.price * item.quantity;
+    });
+
+    if (total > 0) message += `\n*TOTAL APROX:* $${total}`;
+    message += `\n\n_Por favor confirmar existencias y tallas._`;
+
+    const encoded = encodeURIComponent(message);
+    window.open(`https://wa.me/${phone}?text=${encoded}`, '_blank');
+  };
 
   return (
     <div className="catalog-page">
@@ -135,12 +178,84 @@ const Catalog = () => {
           </div>
           
           <div className="grid">
-            {filteredProducts.map(product => (
-              <ProductCard key={product.id} product={product} onOpenImage={setSelectedImage} />
-            ))}
-            {filteredProducts.length === 0 && <p style={{ textAlign: 'center', width: '100%', opacity: 0.5 }}>Próximamente más modelos...</p>}
+            {loading ? (
+              Array(6).fill(0).map((_, i) => <ProductSkeleton key={i} />)
+            ) : (
+              <>
+                {filteredProducts.map(product => (
+                  <ProductCard 
+                    key={product.id} 
+                    product={product} 
+                    onOpenImage={setSelectedImage} 
+                    onAddToCart={() => addToCart(product)}
+                  />
+                ))}
+                {filteredProducts.length === 0 && <p style={{ textAlign: 'center', width: '100%', opacity: 0.5 }}>Próximamente más modelos...</p>}
+              </>
+            )}
           </div>
         </section>
+      )}
+
+      {/* CARRITO FLOTANTE */}
+      {cart.length > 0 && (
+        <div style={{
+          position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 500,
+          display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '1rem'
+        }}>
+          {isCartVisible && (
+            <div className="glass" style={{
+              width: '320px', maxHeight: '450px', padding: '1.5rem', borderRadius: '1.5rem',
+              display: 'flex', flexDirection: 'column', gap: '1rem',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.5)', overflowY: 'auto'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ margin: 0 }}>Tu Pedido</h3>
+                <button onClick={() => setIsCartVisible(false)} style={{ background: 'none', border: 'none', color: 'white', fontSize: '1.5rem' }}>×</button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {cart.map(item => (
+                  <div key={item.id} style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    <img src={item.image_url} alt="" style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover' }} />
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: '0.85rem', fontWeight: 'bold', margin:0 }}>{item.name}</p>
+                      <span style={{ fontSize: '0.75rem', opacity: 0.6 }}>{item.type === 'order' ? 'Cotizar' : `$${item.price}`}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <button onClick={() => updateQuantity(item.id, -1)} className="glass" style={{ width: '24px', height: '24px', borderRadius: '50%', color: 'white' }}>-</button>
+                      <span style={{ fontSize: '0.85rem' }}>{item.quantity}</span>
+                      <button onClick={() => updateQuantity(item.id, 1)} className="glass" style={{ width: '24px', height: '24px', borderRadius: '50%', color: 'white' }}>+</button>
+                    </div>
+                    <button onClick={() => removeFromCart(item.id)} style={{ color: '#ff4444', background: 'none', border: 'none' }}>×</button>
+                  </div>
+                ))}
+              </div>
+              <button 
+                onClick={checkoutToWhatsApp}
+                className="btn btn-primary" 
+                style={{ background: '#25D366', color: 'white', width: '100%', marginTop: '0.5rem' }}
+              >
+                📲 Confirmar Pedido en WhatsApp
+              </button>
+            </div>
+          )}
+          
+          <button 
+            onClick={() => setIsCartVisible(!isCartVisible)}
+            className="btn btn-primary" 
+            style={{ 
+              width: '64px', height: '64px', borderRadius: '50%', fontSize: '1.5rem',
+              boxShadow: '0 10px 30px rgba(239, 129, 30, 0.4)', position: 'relative'
+            }}
+          >
+            🛒
+            <span style={{
+              position: 'absolute', top: '-5px', right: '-5px', background: 'white', color: 'var(--primary)',
+              width: '24px', height: '24px', borderRadius: '50%', fontSize: '0.75rem', fontWeight: 'bold',
+              display: 'flex', justifyContent: 'center', alignItems: 'center'
+            }}>{cart.reduce((acc, i) => acc + i.quantity, 0)}</span>
+          </button>
+        </div>
       )}
 
       {selectedImage && (
@@ -159,6 +274,12 @@ const Catalog = () => {
 
       <footer style={{ marginTop: '8rem', padding: '4rem 0', textAlign: 'center', borderTop: '1px solid var(--glass-border)' }}>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>© 2024 DEPORTUX. Envíos a todo el país.</p>
+        <button 
+          onClick={() => setUseTestData(!useTestData)}
+          style={{ marginTop: '1rem', opacity: 0.2, fontSize: '0.6rem', background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}
+        >
+          {useTestData ? 'Usar BD Real' : 'Usar Mock Data (Test)'}
+        </button>
       </footer>
     </div>
   );
@@ -185,12 +306,12 @@ const CategoryCard = ({ title, desc, img, onClick }) => (
   </div>
 );
 
-const ProductCard = ({ product, onOpenImage }) => {
+const ProductCard = ({ product, onOpenImage, onAddToCart }) => {
   const isOrder = product.type === 'order';
   return (
     <div className="glass card">
       <div style={{ position: 'relative', cursor: 'zoom-in' }} onClick={() => onOpenImage(product.image_url)}>
-        <img src={product.image_url} alt={product.name} className="product-img" />
+        <img src={product.image_url} alt={product.name} className="product-img" loading="lazy" />
         <span className="badge" style={{ 
           position: 'absolute', top: '1rem', left: '1rem', background: isOrder ? '#fbbf24' : '#10b981',
           color: isOrder ? 'black' : 'white', fontWeight: 'bold', fontSize: '0.65rem'
@@ -216,13 +337,26 @@ const ProductCard = ({ product, onOpenImage }) => {
           <span className="price" style={{ color: isOrder ? '#fbbf24' : 'inherit' }}>
             {isOrder ? 'Cotizar' : `$${product.price}`}
           </span>
-          <button className="btn btn-primary" style={{ padding: '0.5rem 1rem' }}>
-            {isOrder ? 'Consultar' : 'Comprar'}
+          <button onClick={onAddToCart} className="btn btn-primary" style={{ padding: '0.5rem 1rem' }}>
+            {isOrder ? 'Consultar' : 'Añadir 🛒'}
           </button>
         </div>
       </div>
     </div>
   );
 };
+
+const ProductSkeleton = () => (
+  <div className="glass card" style={{ height: '380px' }}>
+    <div className="skeleton" style={{ height: '240px', width: '100%' }}></div>
+    <div className="product-info" style={{ gap: '1rem' }}>
+      <div className="skeleton" style={{ height: '1.5rem', width: '100%' }}></div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'auto' }}>
+        <div className="skeleton" style={{ height: '1.2rem', width: '80px' }}></div>
+        <div className="skeleton" style={{ height: '2.5rem', width: '100px', borderRadius: 'var(--radius-md)' }}></div>
+      </div>
+    </div>
+  </div>
+);
 
 export default Catalog;

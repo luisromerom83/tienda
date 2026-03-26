@@ -36,6 +36,11 @@ export default async function handler(request, response) {
 
     // 2. GET
     if (request.method === 'GET') {
+      const { test } = request.query;
+      if (test === 'true') {
+        const mockData = await import('./mock_products.json', { assert: { type: 'json' } });
+        return response.status(200).json(mockData.default || []);
+      }
       const { rows } = await pool.sql`SELECT * FROM products ORDER BY created_at DESC;`;
       return response.status(200).json(rows || []);
     }
