@@ -602,7 +602,7 @@ const AdminDashboard = () => {
   );
 
   return (
-    <div className="admin-page" style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
+    <div className="admin-page-container">
       <Loader show={loading || isUploading} />
       <style>{`
         .tabs { display: flex; gap: 0.5rem; margin-bottom: 2rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
@@ -634,11 +634,39 @@ const AdminDashboard = () => {
         .animate-check { animation: pulse-check 0.3s ease-out; }
         .item-row { transition: all 0.3s ease; }
         .item-row.received { background: rgba(16, 185, 129, 0.08) !important; border-color: #10b981 !important; }
+
+        /* Responsive Layout Fixes */
+        .admin-page-container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        .admin-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; gap: 1rem; }
+        .tallas-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 1rem; }
+        .customer-form { display: flex; gap: 1rem; margin-top: 1rem; }
+        @media (max-width: 768px) {
+          .admin-page-container { padding: 1rem; overflow-x: hidden; }
+          .admin-header { flex-direction: column; text-align: center; }
+          .admin-header img { height: 50px !important; }
+          .tabs { overflow-x: auto; white-space: nowrap; padding-bottom: 5px; flex-wrap: nowrap; }
+          .tab-btn { padding: 0.8rem 1rem; font-size: 0.85rem; flex: 0 0 auto; }
+          .glass { padding: 1.2rem !important; }
+          .admin-grid { grid-template-columns: 1fr; }
+          .tallas-grid { grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 0.5rem; }
+          .tallas-grid .glass { padding: 0.5rem !important; }
+          .tallas-grid input { padding: 0.2rem !important; font-size: 0.8rem; }
+          .tallas-grid svg, .tallas-grid span { font-size: 0.75rem; }
+          .floating-order, .floating-sale { width: 100%; padding: 1.5rem; }
+          .toggle-btn { padding: 0.8rem 0.3rem !important; font-size: 0.8rem !important; }
+          .customer-form { flex-direction: column; }
+          .cart-item-grid { grid-template-columns: 1fr 1fr !important; gap: 1rem !important; }
+          .order-item-grid { grid-template-columns: 1fr 1fr !important; gap: 1rem !important; }
+        }
+        .cart-item-grid { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap: 0.5rem; align-items: end; }
+        .cart-item-grid input, .cart-item-grid select { min-width: 0; width: 100%; }
+        .order-item-grid { display: grid; grid-template-columns: 1fr 1.5fr 1.5fr; gap: 0.5rem; align-items: end; }
+        .order-item-grid input, .order-item-grid select { min-width: 0; width: 100%; }
       `}</style>
       
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      <header className="admin-header">
         <img src="/logo.png" alt="Logo" style={{ height: '60px' }} />
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
           <Link to="/" className="btn glass">Ver Tienda</Link>
           <button onClick={() => { sessionStorage.clear(); window.location.reload(); }} className="btn" style={{ background: '#ef4444' }}>Cerrar Sesión</button>
         </div>
@@ -671,7 +699,7 @@ const AdminDashboard = () => {
                       <label style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--primary)' }}>Tallas y Existencias:</label>
                       <button type="button" onClick={() => setNewProduct({...newProduct, size: '', stock_by_size: {}})} style={{ background: 'none', border: 'none', color: '#f87171', fontSize: '0.75rem', cursor: 'pointer' }}>Borrar todas</button>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1rem' }}>
+                    <div className="tallas-grid">
                       {(availableSizes[newProduct.category] || []).map(size => {
                         const qty = (newProduct.stock_by_size && newProduct.stock_by_size[size]) || 0;
                         const isSelected = qty > 0 || (newProduct.size && newProduct.size.split(',').map(s => s.trim()).includes(size));
@@ -951,7 +979,7 @@ const AdminDashboard = () => {
                   await fetch('/api/customers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newCustomer) }); 
                   setNewCustomer({name:'', phone:''}); 
                   fetchCustomers(); 
-                }} style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                }} className="customer-form">
                   <input type="text" placeholder="Nombre" required className="glass" style={{ flex: 2, padding: '0.8rem' }} value={newCustomer.name} onChange={e => setNewCustomer({...newCustomer, name: e.target.value})} />
                   <input type="text" placeholder="WhatsApp" className="glass" style={{ flex: 1, padding: '0.8rem' }} value={newCustomer.phone} onChange={e => setNewCustomer({...newCustomer, phone: e.target.value})} />
                   <button type="submit" className="btn btn-primary">Registrar</button>
@@ -1193,12 +1221,12 @@ const AdminDashboard = () => {
                 <button onClick={() => setActiveSaleItems(activeSaleItems.filter(i => i.saleId !== item.saleId))} style={{ color: '#ef4444', border: 'none', background: 'none' }}>×</button>
               </div>
               
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', alignItems: 'center' }}>
+              <div className="cart-item-grid">
                 <div>
-                  <label style={{ fontSize: '0.65rem', opacity: 0.6, display: 'block' }}>Talla:</label>
+                  <label style={{ fontSize: '0.65rem', opacity: 0.6, display: 'block', marginBottom: '4px' }}>Talla:</label>
                   <select 
                     className="glass" 
-                    style={{ width: '100%', padding: '0.3rem', background: '#0f172a' }} 
+                    style={{ padding: '0.4rem', background: '#0f172a' }} 
                     value={item.size} 
                     onChange={e => updateSaleItem(item.saleId, { size: e.target.value })}
                   >
@@ -1209,30 +1237,30 @@ const AdminDashboard = () => {
                   </select>
                 </div>
                 <div>
-                  <label style={{ fontSize: '0.65rem', opacity: 0.6, display: 'block' }}>Cant:</label>
+                  <label style={{ fontSize: '0.65rem', opacity: 0.6, display: 'block', marginBottom: '4px' }}>Cant:</label>
                   <input 
                     type="number" 
                     className="glass" 
-                    style={{ width: '100%', padding: '0.3rem' }} 
+                    style={{ padding: '0.4rem' }} 
                     value={item.quantity} 
                     onChange={e => updateSaleItem(item.saleId, { quantity: parseInt(e.target.value) })} 
                     min="1" 
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: '0.65rem', opacity: 0.6, display: 'block' }}>Precio Uni:</label>
+                  <label style={{ fontSize: '0.65rem', opacity: 0.6, display: 'block', marginBottom: '4px' }}>Precio Uni:</label>
                   <input 
                     type="number" 
                     className="glass" 
-                    style={{ width: '100%', padding: '0.3rem' }} 
+                    style={{ padding: '0.4rem' }} 
                     value={item.price} 
                     onChange={e => updateSaleItem(item.saleId, { price: parseFloat(e.target.value) })} 
                     placeholder="Precio" 
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: '0.65rem', opacity: 0.6, display: 'block' }}>Total:</label>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>${(parseFloat(item.price || 0) * parseInt(item.quantity || 0)).toFixed(0)}</div>
+                  <label style={{ fontSize: '0.65rem', opacity: 0.6, display: 'block', marginBottom: '4px' }}>Total:</label>
+                  <div style={{ fontSize: '1rem', fontWeight: 'bold' }}>${(parseFloat(item.price || 0) * parseInt(item.quantity || 0)).toFixed(0)}</div>
                 </div>
               </div>
             </div>
@@ -1305,16 +1333,25 @@ const AdminDashboard = () => {
                 <strong style={{ fontSize: '0.9rem' }}>{item.name}</strong>
                 <button onClick={() => setActiveOrderItems(activeOrderItems.filter(i => i.orderId !== item.orderId))} style={{ color: '#ef4444', border: 'none', background: 'none' }}>×</button>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 1fr', gap: '0.5rem' }}>
-                <input type="number" className="glass" style={{ padding: '0.3rem' }} value={item.quantity} onChange={e => updateOrderItem(item.orderId, { quantity: parseInt(e.target.value) })} />
-                <select className="glass" style={{ padding: '0.3rem', background: '#0f172a', color: 'white' }} value={item.size} onChange={e => updateOrderItem(item.orderId, { size: e.target.value })}>
-                  <option value="">Talla</option>
-                  {(availableSizes[item.category] || []).map(s => <option key={`${item.category}-${s}`} value={s}>{s}</option>)}
-                  {item.size && !availableSizes[item.category]?.includes(item.size) && !item.size.includes(',') && (
-                    <option value={item.size}>{item.size}</option>
-                  )}
-                </select>
-                <input type="number" className="glass" style={{ padding: '0.3rem' }} value={item.sale_price} onChange={e => updateOrderItem(item.orderId, { sale_price: parseFloat(e.target.value) })} placeholder="Venta" />
+              <div className="order-item-grid">
+                <div>
+                  <label style={{ fontSize: '0.65rem', opacity: 0.6, display: 'block', marginBottom: '4px' }}>Cant:</label>
+                  <input type="number" className="glass" style={{ padding: '0.4rem' }} value={item.quantity} onChange={e => updateOrderItem(item.orderId, { quantity: parseInt(e.target.value) })} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.65rem', opacity: 0.6, display: 'block', marginBottom: '4px' }}>Talla:</label>
+                  <select className="glass" style={{ padding: '0.4rem', background: '#0f172a', color: 'white' }} value={item.size} onChange={e => updateOrderItem(item.orderId, { size: e.target.value })}>
+                    <option value="">Talla</option>
+                    {(availableSizes[item.category] || []).map(s => <option key={`${item.category}-${s}`} value={s}>{s}</option>)}
+                    {item.size && !availableSizes[item.category]?.includes(item.size) && !item.size.includes(',') && (
+                      <option value={item.size}>{item.size}</option>
+                    )}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.65rem', opacity: 0.6, display: 'block', marginBottom: '4px' }}>Precio Venta:</label>
+                  <input type="number" className="glass" style={{ padding: '0.4rem' }} value={item.sale_price} onChange={e => updateOrderItem(item.orderId, { sale_price: parseFloat(e.target.value) })} placeholder="Venta" />
+                </div>
               </div>
               <div style={{ marginTop: '0.8rem', background: 'rgba(0,0,0,0.2)', padding: '0.5rem', borderRadius: '8px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem' }}>
